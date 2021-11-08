@@ -2,9 +2,9 @@
 # How to use the Oss-Proj
 # Step 1:
 Place the CSV-File with the data to be processed in the "input/" folder. It is important to name the file "data.csv", as the one which is already in the "input/" folder as an example.
-#Step 2:
+# Step 2:
 Place a "schema.txt" file with the schema of your data also inside the "input/" folder. As before the already existing "schema.txt" is an example on how it could look like. It is important that the file is called "schema.txt"!
-#Step 3:
+# Step 3:
 Create a "config" file and place it in the "input/" folder. The already existing file is also there as an example.
 The "config" must satisfy the following requirements:
 - There has to be exactly one "Seperator: " keyword followed by the seperator used in your .csv and schema.txt file (Both have to use the same seperator).
