@@ -1,0 +1,15 @@
+Seperator: ,
+
+Output_Path:
+
+Function_Title: map_function_c
+
+Function: def map_function_c(x):
+    print(x)
+    print(x.Income)
+    print(x.Income[0])
+    print(type(x.Income[0]))
+    for i in range(len(x.Income)):
+        x.Income[i] = not x.Income[i]
+    print(x.Income)
+    return x

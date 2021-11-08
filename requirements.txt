@@ -1,0 +1,4 @@
+apache_flink_libraries==1.14.0
+numpy==1.19.0
+pandas==1.0.5
+pyflink==1.0
