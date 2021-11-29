@@ -1,0 +1,157 @@
+<!doctype html>
+<html>
+  <head>
+    <title>File Upload</title>
+    <style media="screen">
+      #custom-button {
+        padding: 10px;
+        color: white;
+        background-color: #009578;
+        border: 1px solid #000;
+        border-radius: 5px;
+        cursor: pointer;
+      }
+
+      #custom-button:hover {
+        background-color: #00b28f;
+      }
+
+      #custom-text {
+        margin-left: 10px;
+        font-family: sans-serif;
+        color: #aaa;
+      }
+      #custom-button-1 {
+        padding: 10px;
+        color: white;
+        background-color: #009578;
+        border: 1px solid #000;
+        border-radius: 5px;
+        cursor: pointer;
+      }
+
+      #custom-button-1:hover {
+        background-color: #00b28f;
+      }
+
+      #custom-text-1 {
+        margin-left: 10px;
+        font-family: sans-serif;
+        color: #aaa;
+      }
+      #custom-button-2 {
+        padding: 10px;
+        color: white;
+        background-color: #009578;
+        border: 1px solid #000;
+        border-radius: 5px;
+        cursor: pointer;
+      }
+
+      #custom-button-2:hover {
+        background-color: #00b28f;
+      }
+
+      #custom-text-2 {
+        margin-left: 10px;
+        font-family: sans-serif;
+        color: #aaa;
+      }
+      #custom-button-3 {
+        padding: 10px;
+        color: white;
+        background-color: #009578;
+        border: 1px solid #000;
+        border-radius: 5px;
+        cursor: pointer;
+      }
+
+      #custom-button-3:hover {
+        background-color: #00b28f;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Please upload your data.csv, your schema.txt and your config file here!</h1>
+    <form method="POST", action="" enctype="multipart/form-data">
+      <p>
+        <input type="file" id="csv-file" hidden="hidden" name="csv_file"/>
+        <button type="button" id="custom-button">CHOOSE YOUR DATA.CSV FILE!</button>
+        <span id="custom-text">No file chosen, yet.</span>
+      </p>
+      <p>
+        <input type="file" id="txt-file" hidden="hidden" name="txt_file"/>
+        <button type="button" id="custom-button-1">CHOOSE YOUR SCHEMA.TXT FILE!</button>
+        <span id="custom-text-1">No file chosen, yet.</span>
+      </p>
+      <p>
+        <input type="file" id="config-file" hidden="hidden" name="config_file"/>
+        <button type="button" id="custom-button-2">CHOOSE YOUR CONFIG FILE!</button>
+        <span id="custom-text-2">No file chosen, yet.</span>
+      </p>
+      <p>
+        <button type="button" id="custom-button-3">Submit</button>
+        <input type="submit" id="submit" hidden="hidden">
+      </p>
+    </form>
+    <script type="text/javascript">
+      const realFileBtn = document.getElementById("txt-file");
+      const customBtn = document.getElementById("custom-button-1");
+      const customTxt = document.getElementById("custom-text-1");
+
+      customBtn.addEventListener("click", function() {
+        realFileBtn.click();
+      });
+
+      realFileBtn.addEventListener("change", function() {
+        if (realFileBtn.value) {
+          customTxt.innerHTML = realFileBtn.value.match(
+            /[\/\\]([\w\d\s\.\-\(\)]+)$/
+          )[1];
+        } else {
+          customTxt.innerHTML = "No file chosen, yet.";
+        }
+      });
+      const realFileBtn_1 = document.getElementById("csv-file");
+      const customBtn_1 = document.getElementById("custom-button");
+      const customTxt_1 = document.getElementById("custom-text");
+
+      customBtn_1.addEventListener("click", function() {
+        realFileBtn_1.click();
+      });
+
+      realFileBtn_1.addEventListener("change", function() {
+        if (realFileBtn_1.value) {
+          customTxt_1.innerHTML = realFileBtn_1.value.match(
+            /[\/\\]([\w\d\s\.\-\(\)]+)$/
+          )[1];
+        } else {
+          customTxt_1.innerHTML = "No file chosen, yet.";
+        }
+      });
+      const realFileBtn_2 = document.getElementById("config-file");
+      const customBtn_2 = document.getElementById("custom-button-2");
+      const customTxt_2 = document.getElementById("custom-text-2");
+
+      customBtn_2.addEventListener("click", function() {
+        realFileBtn_2.click();
+      });
+
+      realFileBtn_2.addEventListener("change", function() {
+        if (realFileBtn_2.value) {
+          customTxt_2.innerHTML = realFileBtn_2.value.match(
+            /[\/\\]([\w\d\s\.\-\(\)]+)$/
+          )[1];
+        } else {
+          customTxt_2.innerHTML = "No file chosen, yet.";
+        }
+      });
+      const realFileBtn_3 = document.getElementById("submit");
+      const customBtn_3 = document.getElementById("custom-button-3");
+
+      customBtn_3.addEventListener("click", function() {
+        realFileBtn_3.click();
+      });
+    </script>
+  </body>
+</html>

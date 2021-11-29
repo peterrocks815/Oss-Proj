@@ -1,14 +1,18 @@
-FROM python:3.6
+FROM python:3.6 as builder
 
 RUN mkdir -p /home/app
+RUN mkdir -p /home/app/templates
+RUN mkdir -p /home/app/input
 
+ADD server.py /home/app
 ADD main.py /home/app
 
+COPY /Oss-Proj/templates /home/app/templates
 COPY requirements.txt /home/app
-COPY input/config /home/app
-COPY input/data.csv /home/app
-COPY input/schema.txt /home/app
 
-RUN pip install -r /home/app/requirements.txt
+FROM python:3.6
+WORKDIR /app
+COPY --from=builder /home/app/ /app/
 
-ENTRYPOINT ["python3", "/home/app/main.py", "/home/app/data.csv", "/home/app/schema.txt", "/home/app/config"]
+RUN pip install -r /app/requirements.txt
+RUN ["python3", "/app/server.py"]

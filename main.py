@@ -1,8 +1,67 @@
 import datetime
 import sys
-import os
 import numpy
 import pandas as pd
+from shutil import copyfile, make_archive
+
+
+def get_sql_command(path):
+    file = open(path, "r")
+    command = "t_env.execute_sql('''"
+    new_command = False
+    for line in file:
+        if "SQL_Command: " in line:
+            command += line[13:]
+            for l in file:
+                if l is "\n" or l is "\r":
+                    if command[-1] == "\n" or command[-1] == "\r":
+                        command = command[: -1]
+                    return command
+                if ";" in l:
+                    l = l.replace(";", " ''')")
+                    if new_command:
+                        command += "t_env.execute_sql('''"
+                        command += l
+                    else:
+                        command += l
+                    new_command = True
+                    continue
+                if new_command:
+                    command += "t_env.execute_sql('''"
+                    command += l
+                    new_command = False
+                else:
+                    command += l
+
+    if command[-1] == "\n" or command[-1] == "\r":
+        command = command[: -1]
+    return command
+
+
+def get_sql_query(path):
+    file = open(path, "r")
+    query = ""
+    for line in file:
+        if "SQL_Query: " in line:
+            query += line[10:]
+            for l in file:
+                if ";" in l:
+                    l = l.replace(";", "")
+                if l is "\n" or l is "\r":
+                    return query
+                query += l
+    return query
+
+
+def get_table_name(path):
+    file = open(path, "r")
+    name = ""
+    for line in file:
+        if "Table_Name: " in line:
+            line = line.replace("\n", "")
+            line = line.replace("\r", "")
+            name += line[12:]
+    return name
 
 
 def get_output_path(path):
@@ -12,7 +71,7 @@ def get_output_path(path):
         if "Output_Path: " in line:
             line = line.replace("\n", "")
             line = line.replace("\r", "")
-            output += line[20:]
+            output += line[13:]
     return output
 
 
@@ -98,47 +157,126 @@ def get_schema(path, seperator):
     return header
 
 
-if __name__ == "__main__":
-
+def create_output(data_path=None, schema_path=None, config_path=None):
     # Sanity checks
-    if len(sys.argv) is 1:
+    if data_path is None:
         print("please specify a data csv file")
         sys.exit()
-    if len(sys.argv) is 2:
+    if schema_path is None:
         print("please specify a schema as a .txt file")
         sys.exit()
-    if len(sys.argv) is 3:
+    if config_path is None:
         print("please specify a config file")
         sys.exit()
 
-    print(os.getcwd())
-
     # Get seperator from config file
-    seperator = get_seperator(sys.argv[3])
-    print(seperator)
+    seperator = get_seperator(config_path)
 
     # Get the csv output path
-    csv_output_path = get_output_path(sys.argv[3])
+    csv_output_path = get_output_path(config_path)
 
     # Get schema from schema file
-    schema = get_schema(sys.argv[2], seperator)
+    schema = get_schema(schema_path, seperator)
 
     # Get elements as well as the column types from the csv file
-    csv_elements, type_list = get_csv_elements(sys.argv[1], seperator, schema)
+    csv_elements, type_list = get_csv_elements(data_path, seperator, schema)
 
     # Get the function from the config file
-    map_function = get_map_function(sys.argv[3])
+    map_function = get_map_function(config_path)
 
     # Get the title of the function from the config file
-    title = get_function_title(sys.argv[3])
+    title = get_function_title(config_path)
 
-    # Define the new python module to create
-    new_module = f"""
+    # Get the title of the function from the config file
+    table_name = get_table_name(config_path)
+    if table_name is "":
+        table_name = "source_table"
+
+    # Get the title of the function from the config file
+    sql_query = get_sql_query(config_path)
+
+    sql_command = get_sql_command(config_path)
+
+    if sql_query is not "" and csv_elements and sql_command is "":
+        # Define the new python module to create
+        new_module = f"""from pyflink.table import EnvironmentSettings, TableEnvironment, TableDescriptor, Schema, DataTypes
+from pyflink.table.udf import udf
+import pandas as pd
+
+# Set batch mode setting for optimiued batch processing. This may be changed later for stream processing
+settings = EnvironmentSettings.in_batch_mode()
+        
+# Create TableEnvironment which is the central object used in the Table/SQL API
+t_env = TableEnvironment.create(settings)
+
+pdf = pd.read_csv('data.csv', sep='{seperator}', names={schema})
+# write all the data to one file
+t_env.get_config().get_configuration().set_string("parallelism.default", "1")
+table = t_env.from_pandas(pdf, {schema})
+t_env.create_temporary_view('{table_name}', table)
+tab = t_env.sql_query('''{sql_query}''')
+
+pd_table = tab.to_pandas()
+pd_table.columns = {schema}
+pd_table.to_csv("{csv_output_path}" + "output.csv", index=False)
+                """
+
+    elif map_function is not "":
+        # Define the new python module to create
+        new_module = f"""
 from pyflink.table import EnvironmentSettings, TableEnvironment, TableDescriptor, Schema, DataTypes
 from pyflink.table.udf import udf
-
-
+import pandas as pd
+    
+    
 {map_function}
+    
+# Set batch mode setting for optimiued batch processing. This may be changed later for stream processing
+settings = EnvironmentSettings.in_batch_mode()
+    
+# Create TableEnvironment which is the central object used in the Table/SQL API
+t_env = TableEnvironment.create(settings)
+    
+pdf = pd.read_csv('data.csv', sep='{seperator}', names={schema})
+# write all the data to one file
+t_env.get_config().get_configuration().set_string("parallelism.default", "1")
+table = t_env.from_pandas(pdf, {schema})
+t_env.create_temporary_view('{table_name}', table)
+tab = t_env.from_path("{table_name}")
+    
+map_function = udf({title},
+                    result_type=DataTypes.ROW(
+                        {type_list}),
+                    func_type="pandas")
+    
+pd_table = tab.map(map_function).to_pandas()
+pd_table.columns = {schema}
+pd_table.to_csv("{csv_output_path}" + "output.csv", index=False)
+            """
+
+    elif sql_command is not "" and csv_elements:
+        # Define the new python module to create
+        new_module = f"""from pyflink.table import EnvironmentSettings, TableEnvironment, TableDescriptor, Schema, DataTypes
+from pyflink.table.udf import udf
+import pandas as pd
+
+# Set batch mode setting for optimiued batch processing. This may be changed later for stream processing
+settings = EnvironmentSettings.in_batch_mode()
+        
+# Create TableEnvironment which is the central object used in the Table/SQL API
+t_env = TableEnvironment.create(settings)
+pdf = pd.read_csv('data.csv', sep='{seperator}', names={schema})
+# write all the data to one file
+t_env.get_config().get_configuration().set_string("parallelism.default", "1")
+table = t_env.from_pandas(pdf, {schema})
+t_env.create_temporary_view('{table_name}', table)
+{sql_command}.wait()
+                """
+    elif sql_command is not "" and not csv_elements:
+        # Define the new python module to create
+        new_module = f"""from pyflink.table import EnvironmentSettings, TableEnvironment, TableDescriptor, Schema, DataTypes
+from pyflink.table.udf import udf
+import pandas as pd
 
 # Set batch mode setting for optimiued batch processing. This may be changed later for stream processing
 settings = EnvironmentSettings.in_batch_mode()
@@ -148,22 +286,12 @@ t_env = TableEnvironment.create(settings)
 
 # write all the data to one file
 t_env.get_config().get_configuration().set_string("parallelism.default", "1")
-table = t_env.from_elements({csv_elements}, {schema})
-t_env.create_temporary_view('source_table', table)
-tab = t_env.from_path("source_table")
-
-map_function = udf({title},
-                   result_type=DataTypes.ROW(
-                       {type_list}),
-                   func_type="pandas")
-
-pd_table = tab.map(map_function).to_pandas()
-pd_table.to_csv("{csv_output_path}" + "output.csv")
-    """
+{sql_command}.wait()"""
+    else:
+        new_module = ""
 
     # Write the new module
-    file = open("output.py", "w")
+    file = open("input/output.py", "w")
     file.write(new_module)
     file.close()
-    while (True):
-        pass
+    make_archive("output", "zip", "input")

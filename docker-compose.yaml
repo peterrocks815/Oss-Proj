@@ -1,0 +1,7 @@
+version: "3.3"
+services:
+  oss-proj:
+    build:
+      context: ..
+    ports:
+      - "5000:5000"

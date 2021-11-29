@@ -2,9 +2,23 @@ Seperator: ,
 
 Output_Path:
 
+SQL_Command: CREATE TABLE discard_sink (
+  auction  BOOLEAN,
+  price  BIGINT
+) WITH (
+  'connector' = 'blackhole'
+);
+INSERT INTO discard_sink
+SELECT auction, price FROM bid WHERE MOD(price, 123) = 0;
+
+Table_Name: bid
+
+SQL_Query: SELECT auction, price FROM bid WHERE MOD(price, 123) = 0;
+
 Function_Title: map_function_c
 
-Function: def map_function_c(x):
+Function:
+def map_function_c(x):
     print(x)
     print(x.Income)
     print(x.Income[0])
