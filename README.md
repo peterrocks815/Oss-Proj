@@ -10,10 +10,29 @@ The "config" has the following options:
 - If you want to use a SQL-query instead of a function to be executed on the given csv, use the keyword "SQL_Query: " followed by your sql query.
 - If you are using a SQL-query then specify the name of the table after the keyword "Table_Name: ".
 - If you want to execute any sql command (not just a SELECT query) please use the "SQL_Command: " keyword.
-- If no "Output_Path: " is specified the final .csv output will be written as output.csv, otherwise the path will be "/your/specified/output/path/output.csv"
 - ALL KEYWORDS HAVE TO BE SPECIFIED IN THE CONFIG FILE! If you dont want to use some of the keywords just leave them empty. (For example you specify a sql query you dont need to specify a function)
 - If you want to use multiple SQL command you have to write the next command (after a ";") in a new line! 
 - At the end of each option you have to put one empty line in order to signalize that the keyword is over!
+- You can specify the following configurations for flink directly:
+  - pipeline.auto-generate-uids: BOOLEAN
+  - pipeline.auto-type-registration: BOOLEAN
+  - pipeline.auto-watermark-interval: INT_DURATION_MS
+  - pipeline.cached-files: LIST<String>
+  - pipeline.classpaths: LIST<String>
+  - pipeline.closure-cleaner-level: NONE or TOP_LEVEL or RECURSIVE
+  - pipeline.default-kryo-serializers: List<String>
+  - pipeline.force-avro: BOOLEAN
+  - pipeline.force-kryo: BOOLEAN
+  - pipeline.generic-types: BOOLEAN
+  - pipeline.global-job-parameters: MAP
+  - pipeline.jars: List<String>
+  - pipeline.max-parallelism: Integer
+  - pipeline.name: String
+  - pipeline.object-reuse: BOOLEAN
+  - pipeline.operator-chaining: BOOLEAN
+  - pipeline.registered-kryo-types: List<String>
+  - pipeline.registered-pojo-types: List<String>
+  - pipeline.time-characteristic: "ProcessingTime" or "IngestionTime" or "EventTime"
 # Step 2:
 You need a .csv file with your data if you do not specify a table as a SQL command.
 # Step 3:

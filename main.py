@@ -2,7 +2,89 @@ import datetime
 import sys
 import numpy
 import pandas as pd
-from shutil import copyfile, make_archive
+from shutil import make_archive
+
+
+def get_configurations(path):
+    file = open(path, "r")
+    command = ""
+    for line in file:
+        if "pipeline.auto-generate-uids: " in line:
+            command += "t_env.get_config().get_configuration().set_string('" + line[:27]
+            command += "', '" + line[29:-1] + "')\n"
+
+        if "pipeline.auto-type-registration: " in line:
+            command += "t_env.get_config().get_configuration().set_string('" + line[:31]
+            command += "', '" + line[33:-1] + "')\n"
+
+        if "pipeline.auto-watermark-interval: " in line:
+            command += "t_env.get_config().get_configuration().set_string('" + line[:32]
+            command += "', '" + line[34:-1] + "')\n"
+
+        if "pipeline.cached-files: " in line:
+            command += "t_env.get_config().get_configuration().set_string('" + line[:21]
+            command += "', '" + line[23:-1] + "')\n"
+
+        if "pipeline.classpaths: " in line:
+            command += "t_env.get_config().get_configuration().set_string('" + line[:19]
+            command += "', '" + line[21:-1] + "')\n"
+
+        if "pipeline.closure-cleaner-level: " in line:
+            command += "t_env.get_config().get_configuration().set_string('" + line[:30]
+            command += "', '" + line[32:-1] + "')\n"
+
+        if "pipeline.default-kryo-serializers: " in line:
+            command += "t_env.get_config().get_configuration().set_string('" + line[:33]
+            command += "', '" + line[35:-1] + "')\n"
+
+        if "pipeline.force-avro: " in line:
+            command += "t_env.get_config().get_configuration().set_string('" + line[:19]
+            command += "', '" + line[21:-1] + "')\n"
+
+        if "pipeline.force-kryo: " in line:
+            command += "t_env.get_config().get_configuration().set_string('" + line[:19]
+            command += "', '" + line[21:-1] + "')\n"
+
+        if "pipeline.generic-types: " in line:
+            command += "t_env.get_config().get_configuration().set_string('" + line[:22]
+            command += "', '" + line[24:-1] + "')\n"
+
+        if "pipeline.global-job-parameters: " in line:
+            command += "t_env.get_config().get_configuration().set_string('" + line[:30]
+            command += "', '" + line[32:-1] + "')\n"
+
+        if "pipeline.jars: " in line:
+            command += "t_env.get_config().get_configuration().set_string('" + line[:13]
+            command += "', '" + line[15:-1] + "')\n"
+
+        if "pipeline.max-parallelism: " in line:
+            command += "t_env.get_config().get_configuration().set_string('" + line[:24]
+            command += "', '" + line[26:-1] + "')\n"
+
+        if "pipeline.name: " in line:
+            command += "t_env.get_config().get_configuration().set_string('" + line[:13]
+            command += "', '" + line[15:-1] + "')\n"
+
+        if "pipeline.object-reuse: " in line:
+            command += "t_env.get_config().get_configuration().set_string('" + line[:21]
+            command += "', '" + line[23:-1] + "')\n"
+
+        if "pipeline.operator-chaining: " in line:
+            command += "t_env.get_config().get_configuration().set_string('" + line[:26]
+            command += "', '" + line[28:-1] + "')\n"
+
+        if "pipeline.registered-kryo-types: " in line:
+            command += "t_env.get_config().get_configuration().set_string('" + line[:30]
+            command += "', '" + line[32:-1] + "')\n"
+
+        if "pipeline.registered-pojo-types: " in line:
+            command += "t_env.get_config().get_configuration().set_string('" + line[:30]
+            command += "', '" + line[32:-1] + "')\n"
+
+        if "pipeline.time-characteristic: " in line:
+            command += "t_env.get_config().get_configuration().set_string('" + line[:28]
+            command += "', '" + line[30:-1] + "')\n"
+    return command
 
 
 def get_sql_command(path):
@@ -62,17 +144,6 @@ def get_table_name(path):
             line = line.replace("\r", "")
             name += line[12:]
     return name
-
-
-def get_output_path(path):
-    file = open(path, "r")
-    output = ""
-    for line in file:
-        if "Output_Path: " in line:
-            line = line.replace("\n", "")
-            line = line.replace("\r", "")
-            output += line[13:]
-    return output
 
 
 def get_function_title(path):
@@ -172,9 +243,6 @@ def create_output(data_path=None, schema_path=None, config_path=None):
     # Get seperator from config file
     seperator = get_seperator(config_path)
 
-    # Get the csv output path
-    csv_output_path = get_output_path(config_path)
-
     # Get schema from schema file
     schema = get_schema(schema_path, seperator)
 
@@ -186,6 +254,9 @@ def create_output(data_path=None, schema_path=None, config_path=None):
 
     # Get the title of the function from the config file
     title = get_function_title(config_path)
+
+    # Get the general flink configurations
+    configurations = get_configurations(config_path)
 
     # Get the title of the function from the config file
     table_name = get_table_name(config_path)
@@ -212,16 +283,42 @@ t_env = TableEnvironment.create(settings)
 pdf = pd.read_csv('data.csv', sep='{seperator}', names={schema})
 # write all the data to one file
 t_env.get_config().get_configuration().set_string("parallelism.default", "1")
+{configurations}
 table = t_env.from_pandas(pdf, {schema})
 t_env.create_temporary_view('{table_name}', table)
 tab = t_env.sql_query('''{sql_query}''')
 
 pd_table = tab.to_pandas()
 pd_table.columns = {schema}
-pd_table.to_csv("{csv_output_path}" + "output.csv", index=False)
+pd_table.to_csv("output.csv", index=False)
                 """
+        if sql_query is not "" and csv_elements and sql_command is not "":
+            # Define the new python module to create
+            new_module = f"""from pyflink.table import EnvironmentSettings, TableEnvironment, TableDescriptor, Schema, DataTypes
+    from pyflink.table.udf import udf
+    import pandas as pd
 
-    elif map_function is not "":
+    # Set batch mode setting for optimiued batch processing. This may be changed later for stream processing
+    settings = EnvironmentSettings.in_batch_mode()
+
+    # Create TableEnvironment which is the central object used in the Table/SQL API
+    t_env = TableEnvironment.create(settings)
+
+    pdf = pd.read_csv('data.csv', sep='{seperator}', names={schema})
+    # write all the data to one file
+    t_env.get_config().get_configuration().set_string("parallelism.default", "1")
+    {configurations}
+    table = t_env.from_pandas(pdf, {schema})
+    t_env.create_temporary_view('{table_name}', table)
+    {sql_command}.wait()
+    tab = t_env.sql_query('''{sql_query}''')
+
+    pd_table = tab.to_pandas()
+    pd_table.columns = {schema}
+    pd_table.to_csv("output.csv", index=False)
+                    """
+
+    elif map_function is not "" and csv_elements:
         # Define the new python module to create
         new_module = f"""
 from pyflink.table import EnvironmentSettings, TableEnvironment, TableDescriptor, Schema, DataTypes
@@ -240,6 +337,7 @@ t_env = TableEnvironment.create(settings)
 pdf = pd.read_csv('data.csv', sep='{seperator}', names={schema})
 # write all the data to one file
 t_env.get_config().get_configuration().set_string("parallelism.default", "1")
+{configurations}
 table = t_env.from_pandas(pdf, {schema})
 t_env.create_temporary_view('{table_name}', table)
 tab = t_env.from_path("{table_name}")
@@ -251,7 +349,7 @@ map_function = udf({title},
     
 pd_table = tab.map(map_function).to_pandas()
 pd_table.columns = {schema}
-pd_table.to_csv("{csv_output_path}" + "output.csv", index=False)
+pd_table.to_csv("output.csv", index=False)
             """
 
     elif sql_command is not "" and csv_elements:
@@ -268,6 +366,7 @@ t_env = TableEnvironment.create(settings)
 pdf = pd.read_csv('data.csv', sep='{seperator}', names={schema})
 # write all the data to one file
 t_env.get_config().get_configuration().set_string("parallelism.default", "1")
+{configurations}
 table = t_env.from_pandas(pdf, {schema})
 t_env.create_temporary_view('{table_name}', table)
 {sql_command}.wait()
@@ -286,7 +385,30 @@ t_env = TableEnvironment.create(settings)
 
 # write all the data to one file
 t_env.get_config().get_configuration().set_string("parallelism.default", "1")
+{configurations}
 {sql_command}.wait()"""
+    elif sql_command is not "" and sql_query is not "":
+        # Define the new python module to create
+        new_module = f"""from pyflink.table import EnvironmentSettings, TableEnvironment, TableDescriptor, Schema, DataTypes
+from pyflink.table.udf import udf
+import pandas as pd
+
+# Set batch mode setting for optimiued batch processing. This may be changed later for stream processing
+settings = EnvironmentSettings.in_batch_mode()
+
+# Create TableEnvironment which is the central object used in the Table/SQL API
+t_env = TableEnvironment.create(settings)
+
+# write all the data to one file
+t_env.get_config().get_configuration().set_string("parallelism.default", "1")
+{configurations}
+{sql_command}.wait()
+
+tab = t_env.sql_query('''{sql_query}''')
+
+pd_table = tab.to_pandas()
+pd_table.columns = {schema}
+pd_table.to_csv("output.csv", index=False)"""
     else:
         new_module = ""
 
