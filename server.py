@@ -19,7 +19,7 @@ def upload_file():
         uploaded_file['txt_file'].save("input/schema.txt")
     if ".json" in uploaded_file['csv_file'].filename:
         uploaded_file['csv_file'].save("input/data.json")
-    if ".csv" not in uploaded_file['config_file'].filename and ".json" not in uploaded_file['csv_file'].filename and ".txt" not in uploaded_file['config_file'].filename and uploaded_file['config_file'].filename is not "":
+    if ".csv" not in uploaded_file['config_file'].filename and ".json" not in uploaded_file['config_file'].filename and ".txt" not in uploaded_file['config_file'].filename and uploaded_file['config_file'].filename is not "":
         uploaded_file['config_file'].save("input/config")
     if os.path.isfile("input/data.csv") and os.path.isfile("input/schema.txt") and os.path.isfile(
             "input/config"):
