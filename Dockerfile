@@ -4,11 +4,11 @@ RUN mkdir -p /home/app
 RUN mkdir -p /home/app/templates
 RUN mkdir -p /home/app/input
 
-ADD server.py /home/app
-ADD main.py /home/app
+ADD /Oss-Proj/server.py /home/app
+ADD /Oss-Proj/main.py /home/app
 
-COPY /templates /home/app/templates
-COPY requirements.txt /home/app
+COPY /Oss-Proj/templates /home/app/templates
+COPY /Oss-Proj/requirements.txt /home/app
 
 FROM python:3.6
 WORKDIR /app
