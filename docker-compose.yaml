@@ -3,5 +3,6 @@ services:
   oss-proj:
     build:
       context: ..
+      dockerfile: ./Oss-proj/Dockerfile
     ports:
       - "5000:5000"
