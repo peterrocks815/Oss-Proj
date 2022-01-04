@@ -17,11 +17,16 @@ def upload_file():
         uploaded_file['csv_file'].save("input/data.csv")
     if ".txt" in uploaded_file['txt_file'].filename:
         uploaded_file['txt_file'].save("input/schema.txt")
-    if ".csv" not in uploaded_file['config_file'].filename and ".txt" not in uploaded_file['config_file'].filename and uploaded_file['config_file'].filename is not "":
+    if ".json" in uploaded_file['csv_file'].filename:
+        uploaded_file['csv_file'].save("input/data.json")
+    if ".csv" not in uploaded_file['config_file'].filename and ".json" not in uploaded_file['csv_file'].filename and ".txt" not in uploaded_file['config_file'].filename and uploaded_file['config_file'].filename is not "":
         uploaded_file['config_file'].save("input/config")
     if os.path.isfile("input/data.csv") and os.path.isfile("input/schema.txt") and os.path.isfile(
             "input/config"):
         main.create_output("input/data.csv", "input/schema.txt", "input/config")
+    if os.path.isfile("input/data.json") and os.path.isfile("input/schema.txt") and os.path.isfile(
+            "input/config"):
+        main.create_output("input/data.json", "input/schema.txt", "input/config")
         return redirect(url_for('download_file'))
     return redirect(url_for('index'))
 

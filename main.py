@@ -5,6 +5,16 @@ import pandas as pd
 from shutil import make_archive
 
 
+def is_json_data(path):
+    file = open(path, "r")
+    for line in file:
+        if "JSON: " in line:
+            tmp = line[6:-1]
+            if "true" in tmp.lower():
+                return True
+    return False
+
+
 def get_configurations(path):
     file = open(path, "r")
     command = ""
@@ -177,6 +187,36 @@ def get_seperator(path):
     return sep
 
 
+def get_csv_elements_json(path, schema):
+    df = pd.read_json(path)
+    return_type_list = "["
+    if df.size != 0:
+        if df.shape[1] == 1:
+            counter = 0
+            for entry in df[df.keys()[0]][0]:
+                if type(df[df.keys()[0]][0][entry]) == float:
+                    return_type_list += "DataTypes.FIELD('" + schema[counter] + "', DataTypes.FLOAT())"
+                elif type(df[df.keys()[0]][0][entry]) == type(""):
+                    return_type_list += "DataTypes.FIELD('" + schema[counter] + "', DataTypes.STRING())"
+                elif type(df[df.keys()[0]][0][entry]) == int:
+                    return_type_list += "DataTypes.FIELD('" + schema[counter] + "', DataTypes.BIGINT())"
+                elif type(df[df.keys()[0]][0][entry]) == bool:
+                    return_type_list += "DataTypes.FIELD('" + schema[counter] + "', DataTypes.BOOLEAN())"
+                elif type(df[df.keys()[0]][0][entry]) == datetime.datetime:
+                    return_type_list += "DataTypes.FIELD('" + schema[counter] + "', DataTypes.DATE())"
+                else:
+                    print("Type not supported")
+                    return False, None
+                counter += 1
+                return_type_list += ", "
+            return_type_list += "]"
+        else:
+            return False, None
+        return True, return_type_list
+    else:
+        return False, None
+
+
 def get_csv_elements(path, seperator, schema):
     df = pd.read_csv(path, header=None, index_col=None, delimiter=seperator)
     return_list = []
@@ -246,8 +286,17 @@ def create_output(data_path=None, schema_path=None, config_path=None):
     # Get schema from schema file
     schema = get_schema(schema_path, seperator)
 
-    # Get elements as well as the column types from the csv file
-    csv_elements, type_list = get_csv_elements(data_path, seperator, schema)
+    # Check if the input data is in json format
+    is_json = is_json_data(config_path)
+
+    if is_json:
+        # Get elements as well as the column types from the json file
+        json_elements, type_list = get_csv_elements_json(data_path, schema)
+        if type_list is None:
+            return
+    else:
+        # Get elements as well as the column types from the csv file
+        csv_elements, type_list = get_csv_elements(data_path, seperator, schema)
 
     # Get the function from the config file
     map_function = get_map_function(config_path)
@@ -267,20 +316,20 @@ def create_output(data_path=None, schema_path=None, config_path=None):
     sql_query = get_sql_query(config_path)
 
     sql_command = get_sql_command(config_path)
-
-    if sql_query is not "" and csv_elements and sql_command is "":
-        # Define the new python module to create
-        new_module = f"""from pyflink.table import EnvironmentSettings, TableEnvironment, TableDescriptor, Schema, DataTypes
+    if is_json:
+        if sql_query is not "" and json_elements and sql_command is "":
+            # Define the new python module to create
+            new_module = f"""from pyflink.table import EnvironmentSettings, TableEnvironment, TableDescriptor, Schema, DataTypes
 from pyflink.table.udf import udf
 import pandas as pd
 
 # Set batch mode setting for optimiued batch processing. This may be changed later for stream processing
 settings = EnvironmentSettings.in_batch_mode()
-        
+
 # Create TableEnvironment which is the central object used in the Table/SQL API
 t_env = TableEnvironment.create(settings)
 
-pdf = pd.read_csv('data.csv', sep='{seperator}', names={schema})
+pdf = pd.read_json('data.json')
 # write all the data to one file
 t_env.get_config().get_configuration().set_string("parallelism.default", "1")
 {configurations}
@@ -292,88 +341,88 @@ pd_table = tab.to_pandas()
 pd_table.columns = {schema}
 pd_table.to_csv("output.csv", index=False)
                 """
-        if sql_query is not "" and csv_elements and sql_command is not "":
-            # Define the new python module to create
-            new_module = f"""from pyflink.table import EnvironmentSettings, TableEnvironment, TableDescriptor, Schema, DataTypes
-    from pyflink.table.udf import udf
-    import pandas as pd
-
-    # Set batch mode setting for optimiued batch processing. This may be changed later for stream processing
-    settings = EnvironmentSettings.in_batch_mode()
-
-    # Create TableEnvironment which is the central object used in the Table/SQL API
-    t_env = TableEnvironment.create(settings)
-
-    pdf = pd.read_csv('data.csv', sep='{seperator}', names={schema})
-    # write all the data to one file
-    t_env.get_config().get_configuration().set_string("parallelism.default", "1")
-    {configurations}
-    table = t_env.from_pandas(pdf, {schema})
-    t_env.create_temporary_view('{table_name}', table)
-    {sql_command}.wait()
-    tab = t_env.sql_query('''{sql_query}''')
-
-    pd_table = tab.to_pandas()
-    pd_table.columns = {schema}
-    pd_table.to_csv("output.csv", index=False)
-                    """
-
-    elif map_function is not "" and csv_elements:
-        # Define the new python module to create
-        new_module = f"""
-from pyflink.table import EnvironmentSettings, TableEnvironment, TableDescriptor, Schema, DataTypes
-from pyflink.table.udf import udf
-import pandas as pd
-    
-    
-{map_function}
-    
-# Set batch mode setting for optimiued batch processing. This may be changed later for stream processing
-settings = EnvironmentSettings.in_batch_mode()
-    
-# Create TableEnvironment which is the central object used in the Table/SQL API
-t_env = TableEnvironment.create(settings)
-    
-pdf = pd.read_csv('data.csv', sep='{seperator}', names={schema})
-# write all the data to one file
-t_env.get_config().get_configuration().set_string("parallelism.default", "1")
-{configurations}
-table = t_env.from_pandas(pdf, {schema})
-t_env.create_temporary_view('{table_name}', table)
-tab = t_env.from_path("{table_name}")
-    
-map_function = udf({title},
-                    result_type=DataTypes.ROW(
-                        {type_list}),
-                    func_type="pandas")
-    
-pd_table = tab.map(map_function).to_pandas()
-pd_table.columns = {schema}
-pd_table.to_csv("output.csv", index=False)
-            """
-
-    elif sql_command is not "" and csv_elements:
-        # Define the new python module to create
-        new_module = f"""from pyflink.table import EnvironmentSettings, TableEnvironment, TableDescriptor, Schema, DataTypes
+            if sql_query is not "" and json_elements and sql_command is not "":
+                # Define the new python module to create
+                new_module = f"""from pyflink.table import EnvironmentSettings, TableEnvironment, TableDescriptor, Schema, DataTypes
 from pyflink.table.udf import udf
 import pandas as pd
 
 # Set batch mode setting for optimiued batch processing. This may be changed later for stream processing
 settings = EnvironmentSettings.in_batch_mode()
-        
+
 # Create TableEnvironment which is the central object used in the Table/SQL API
 t_env = TableEnvironment.create(settings)
-pdf = pd.read_csv('data.csv', sep='{seperator}', names={schema})
+
+pdf = pd.read_json('data.json')
 # write all the data to one file
 t_env.get_config().get_configuration().set_string("parallelism.default", "1")
 {configurations}
 table = t_env.from_pandas(pdf, {schema})
 t_env.create_temporary_view('{table_name}', table)
 {sql_command}.wait()
+tab = t_env.sql_query('''{sql_query}''')
+
+pd_table = tab.to_pandas()
+pd_table.columns = {schema}
+pd_table.to_csv("output.csv", index=False)
                 """
-    elif sql_command is not "" and not csv_elements:
-        # Define the new python module to create
-        new_module = f"""from pyflink.table import EnvironmentSettings, TableEnvironment, TableDescriptor, Schema, DataTypes
+
+        elif map_function is not "" and json_elements:
+            # Define the new python module to create
+            new_module = f"""
+from pyflink.table import EnvironmentSettings, TableEnvironment, TableDescriptor, Schema, DataTypes
+from pyflink.table.udf import udf
+import pandas as pd
+
+
+{map_function}
+
+# Set batch mode setting for optimiued batch processing. This may be changed later for stream processing
+settings = EnvironmentSettings.in_batch_mode()
+
+# Create TableEnvironment which is the central object used in the Table/SQL API
+t_env = TableEnvironment.create(settings)
+
+pdf = pd.read_json('data.json')
+# write all the data to one file
+t_env.get_config().get_configuration().set_string("parallelism.default", "1")
+{configurations}
+table = t_env.from_pandas(pdf, {schema})
+t_env.create_temporary_view('{table_name}', table)
+tab = t_env.from_path("{table_name}")
+
+map_function = udf({title},
+                    result_type=DataTypes.ROW(
+                        {type_list}),
+                    func_type="pandas")
+
+pd_table = tab.map(map_function).to_pandas()
+pd_table.columns = {schema}
+pd_table.to_csv("output.csv", index=False)
+            """
+
+        elif sql_command is not "" and json_elements:
+            # Define the new python module to create
+            new_module = f"""from pyflink.table import EnvironmentSettings, TableEnvironment, TableDescriptor, Schema, DataTypes
+from pyflink.table.udf import udf
+import pandas as pd
+
+# Set batch mode setting for optimiued batch processing. This may be changed later for stream processing
+settings = EnvironmentSettings.in_batch_mode()
+
+# Create TableEnvironment which is the central object used in the Table/SQL API
+t_env = TableEnvironment.create(settings)
+pdf = pd.read_json('data.json')
+# write all the data to one file
+t_env.get_config().get_configuration().set_string("parallelism.default", "1")
+{configurations}
+table = t_env.from_pandas(pdf, {schema})
+t_env.create_temporary_view('{table_name}', table)
+{sql_command}.wait()
+                        """
+        elif sql_command is not "" and not json_elements:
+            # Define the new python module to create
+            new_module = f"""from pyflink.table import EnvironmentSettings, TableEnvironment, TableDescriptor, Schema, DataTypes
 from pyflink.table.udf import udf
 import pandas as pd
 
@@ -387,9 +436,9 @@ t_env = TableEnvironment.create(settings)
 t_env.get_config().get_configuration().set_string("parallelism.default", "1")
 {configurations}
 {sql_command}.wait()"""
-    elif sql_command is not "" and sql_query is not "":
-        # Define the new python module to create
-        new_module = f"""from pyflink.table import EnvironmentSettings, TableEnvironment, TableDescriptor, Schema, DataTypes
+        elif sql_command is not "" and sql_query is not "":
+            # Define the new python module to create
+            new_module = f"""from pyflink.table import EnvironmentSettings, TableEnvironment, TableDescriptor, Schema, DataTypes
 from pyflink.table.udf import udf
 import pandas as pd
 
@@ -409,11 +458,165 @@ tab = t_env.sql_query('''{sql_query}''')
 pd_table = tab.to_pandas()
 pd_table.columns = {schema}
 pd_table.to_csv("output.csv", index=False)"""
-    else:
-        new_module = ""
+        else:
+            new_module = ""
 
-    # Write the new module
-    file = open("input/output.py", "w")
-    file.write(new_module)
-    file.close()
-    make_archive("output", "zip", "input")
+        # Write the new module
+        file = open("input/output.py", "w")
+        file.write(new_module)
+        file.close()
+        make_archive("output", "zip", "input")
+    else:
+        if sql_query is not "" and csv_elements and sql_command is "":
+            # Define the new python module to create
+            new_module = f"""from pyflink.table import EnvironmentSettings, TableEnvironment, TableDescriptor, Schema, DataTypes
+    from pyflink.table.udf import udf
+    import pandas as pd
+    
+    # Set batch mode setting for optimiued batch processing. This may be changed later for stream processing
+    settings = EnvironmentSettings.in_batch_mode()
+            
+    # Create TableEnvironment which is the central object used in the Table/SQL API
+    t_env = TableEnvironment.create(settings)
+    
+    pdf = pd.read_csv('data.csv', sep='{seperator}', names={schema})
+    # write all the data to one file
+    t_env.get_config().get_configuration().set_string("parallelism.default", "1")
+    {configurations}
+    table = t_env.from_pandas(pdf, {schema})
+    t_env.create_temporary_view('{table_name}', table)
+    tab = t_env.sql_query('''{sql_query}''')
+    
+    pd_table = tab.to_pandas()
+    pd_table.columns = {schema}
+    pd_table.to_csv("output.csv", index=False)
+                    """
+            if sql_query is not "" and csv_elements and sql_command is not "":
+                # Define the new python module to create
+                new_module = f"""from pyflink.table import EnvironmentSettings, TableEnvironment, TableDescriptor, Schema, DataTypes
+        from pyflink.table.udf import udf
+        import pandas as pd
+    
+        # Set batch mode setting for optimiued batch processing. This may be changed later for stream processing
+        settings = EnvironmentSettings.in_batch_mode()
+    
+        # Create TableEnvironment which is the central object used in the Table/SQL API
+        t_env = TableEnvironment.create(settings)
+    
+        pdf = pd.read_csv('data.csv', sep='{seperator}', names={schema})
+        # write all the data to one file
+        t_env.get_config().get_configuration().set_string("parallelism.default", "1")
+        {configurations}
+        table = t_env.from_pandas(pdf, {schema})
+        t_env.create_temporary_view('{table_name}', table)
+        {sql_command}.wait()
+        tab = t_env.sql_query('''{sql_query}''')
+    
+        pd_table = tab.to_pandas()
+        pd_table.columns = {schema}
+        pd_table.to_csv("output.csv", index=False)
+                        """
+
+        elif map_function is not "" and csv_elements:
+            # Define the new python module to create
+            new_module = f"""
+    from pyflink.table import EnvironmentSettings, TableEnvironment, TableDescriptor, Schema, DataTypes
+    from pyflink.table.udf import udf
+    import pandas as pd
+        
+        
+    {map_function}
+        
+    # Set batch mode setting for optimiued batch processing. This may be changed later for stream processing
+    settings = EnvironmentSettings.in_batch_mode()
+        
+    # Create TableEnvironment which is the central object used in the Table/SQL API
+    t_env = TableEnvironment.create(settings)
+        
+    pdf = pd.read_csv('data.csv', sep='{seperator}', names={schema})
+    # write all the data to one file
+    t_env.get_config().get_configuration().set_string("parallelism.default", "1")
+    {configurations}
+    table = t_env.from_pandas(pdf, {schema})
+    t_env.create_temporary_view('{table_name}', table)
+    tab = t_env.from_path("{table_name}")
+        
+    map_function = udf({title},
+                        result_type=DataTypes.ROW(
+                            {type_list}),
+                        func_type="pandas")
+        
+    pd_table = tab.map(map_function).to_pandas()
+    pd_table.columns = {schema}
+    pd_table.to_csv("output.csv", index=False)
+                """
+
+        elif sql_command is not "" and csv_elements:
+            # Define the new python module to create
+            new_module = f"""from pyflink.table import EnvironmentSettings, TableEnvironment, TableDescriptor, Schema, DataTypes
+    from pyflink.table.udf import udf
+    import pandas as pd
+    
+    # Set batch mode setting for optimiued batch processing. This may be changed later for stream processing
+    settings = EnvironmentSettings.in_batch_mode()
+            
+    # Create TableEnvironment which is the central object used in the Table/SQL API
+    t_env = TableEnvironment.create(settings)
+    pdf = pd.read_csv('data.csv', sep='{seperator}', names={schema})
+    # write all the data to one file
+    t_env.get_config().get_configuration().set_string("parallelism.default", "1")
+    {configurations}
+    table = t_env.from_pandas(pdf, {schema})
+    t_env.create_temporary_view('{table_name}', table)
+    {sql_command}.wait()
+                    """
+        elif sql_command is not "" and not csv_elements:
+            # Define the new python module to create
+            new_module = f"""from pyflink.table import EnvironmentSettings, TableEnvironment, TableDescriptor, Schema, DataTypes
+    from pyflink.table.udf import udf
+    import pandas as pd
+    
+    # Set batch mode setting for optimiued batch processing. This may be changed later for stream processing
+    settings = EnvironmentSettings.in_batch_mode()
+    
+    # Create TableEnvironment which is the central object used in the Table/SQL API
+    t_env = TableEnvironment.create(settings)
+    
+    # write all the data to one file
+    t_env.get_config().get_configuration().set_string("parallelism.default", "1")
+    {configurations}
+    {sql_command}.wait()"""
+        elif sql_command is not "" and sql_query is not "":
+            # Define the new python module to create
+            new_module = f"""from pyflink.table import EnvironmentSettings, TableEnvironment, TableDescriptor, Schema, DataTypes
+    from pyflink.table.udf import udf
+    import pandas as pd
+    
+    # Set batch mode setting for optimiued batch processing. This may be changed later for stream processing
+    settings = EnvironmentSettings.in_batch_mode()
+    
+    # Create TableEnvironment which is the central object used in the Table/SQL API
+    t_env = TableEnvironment.create(settings)
+    
+    # write all the data to one file
+    t_env.get_config().get_configuration().set_string("parallelism.default", "1")
+    {configurations}
+    {sql_command}.wait()
+    
+    tab = t_env.sql_query('''{sql_query}''')
+    
+    pd_table = tab.to_pandas()
+    pd_table.columns = {schema}
+    pd_table.to_csv("output.csv", index=False)"""
+        else:
+            new_module = ""
+
+        # Write the new module
+        file = open("input/output.py", "w")
+        file.write(new_module)
+        file.close()
+        make_archive("output", "zip", "input")
+
+
+if __name__ == '__main__':
+    create_output(sys.argv[1], sys.argv[2], sys.argv[3])

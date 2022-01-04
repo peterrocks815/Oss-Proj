@@ -7,7 +7,7 @@ RUN mkdir -p /home/app/input
 ADD server.py /home/app
 ADD main.py /home/app
 
-COPY /Oss-Proj/templates /home/app/templates
+COPY /templates /home/app/templates
 COPY requirements.txt /home/app
 
 FROM python:3.6

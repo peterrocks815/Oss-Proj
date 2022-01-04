@@ -14,7 +14,7 @@ The "config" has the following options:
 - If you want to use multiple SQL command you have to write the next command (after a ";") in a new line! 
 - At the end of each option you have to put one empty line in order to signalize that the keyword is over!
 - You can specify the following configurations for flink directly:
-  - pipeline.auto-generate-uids: BOOLEAN
+  _- pipeline.auto-generate-uids: BOOLEAN
   - pipeline.auto-type-registration: BOOLEAN
   - pipeline.auto-watermark-interval: INT_DURATION_MS
   - pipeline.cached-files: LIST<String>
@@ -33,8 +33,9 @@ The "config" has the following options:
   - pipeline.registered-kryo-types: List<String>
   - pipeline.registered-pojo-types: List<String>
   - pipeline.time-characteristic: "ProcessingTime" or "IngestionTime" or "EventTime"
+- If you pass the input data as a JSON file then you need to specify JSON: true
 # Step 2:
-You need a .csv file with your data if you do not specify a table as a SQL command.
+You need a .csv or .json file with your data if you do not specify a table as a SQL command.
 # Step 3:
 You need a .txt file specifying the schema of your table. The column names should be seperated by the specified seperator.
 # Step 4:
@@ -48,6 +49,6 @@ Open your browser and go to the shown ip address.
 # Step 8:
 Upload your config, your .csv and your .txt file by browsing for them and the clicking "Submit".
 # Step 9:
-When a .csv, a .txt and a config file have been found the server automatically creates the output.py file. You will be redirected to a new page. Click "Download!" to download a .zip folder containing the output.py file and your specified files.
+When a .csv or .json, a .txt and a config file have been found the server automatically creates the output.py file. You will be redirected to a new page. Click "Download!" to download a .zip folder containing the output.py file and your specified files.
 # Step 10:
 Call the file output.py with your installed python binary (for example "python3 output.py").
