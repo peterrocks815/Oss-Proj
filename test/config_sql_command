@@ -1,0 +1,20 @@
+seperator: ,
+
+pipeline.auto-watermark-interval: 20
+pipeline.name: "MYPIPELINE"
+
+input_type: csv
+
+list_of_vars: [path_var, connector_var]
+
+sql_command: CREATE TABLE discard_sink (
+  ID  STRING
+) WITH (
+  'connector' = 'connector_var',
+  'path' = 'path_var',
+  'format' = 'csv'
+);
+INSERT INTO discard_sink
+SELECT Product FROM Sales WHERE Price < 2000;
+
+table_name: Sales

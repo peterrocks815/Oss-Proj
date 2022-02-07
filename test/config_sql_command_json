@@ -1,0 +1,20 @@
+seperator: ,
+
+pipeline.auto-watermark-interval: 20
+pipeline.name: "MYPIPELINE"
+
+input_type: json
+
+list_of_vars: [path_var, connector_var]
+
+sql_command: CREATE TABLE discard_sink (
+  ID  STRING
+) WITH (
+  'connector' = 'connector_var',
+  'path' = 'path_var',
+  'format' = 'csv'
+);
+INSERT INTO discard_sink
+SELECT emailAddress FROM bid WHERE phoneNumber = 2222222;
+
+table_name: bid

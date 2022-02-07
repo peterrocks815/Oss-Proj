@@ -24,6 +24,7 @@ def upload_file():
     if os.path.isfile("input/data.csv") and os.path.isfile("input/schema.txt") and os.path.isfile(
             "input/config"):
         main.create_output("input/data.csv", "input/schema.txt", "input/config")
+        return redirect(url_for('download_file'))
     if os.path.isfile("input/data.json") and os.path.isfile("input/schema.txt") and os.path.isfile(
             "input/config"):
         main.create_output("input/data.json", "input/schema.txt", "input/config")

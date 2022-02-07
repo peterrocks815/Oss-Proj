@@ -1,0 +1,13 @@
+seperator: ,
+
+pipeline.auto-watermark-interval: 20
+pipeline.name: "MYPIPELINE"
+
+input_type: json
+
+function_title: map_function_c
+
+function: def map_function_c(x):
+    for i in range(len(x.userId)):
+        x.userId[i] =  x.userId[i] + 1
+    return x

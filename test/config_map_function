@@ -1,0 +1,13 @@
+seperator: ,
+
+pipeline.auto-watermark-interval: 20
+pipeline.name: "MYPIPELINE"
+
+input_type: csv
+
+function_title: map_function_c
+
+function: def map_function_c(x):
+    for i in range(len(x.Price)):
+        x.Price[i] =  x.Price[i] * 0.87457291
+    return x

@@ -1,1 +1,0 @@
-auction,bidder,price,dateTime,extra
